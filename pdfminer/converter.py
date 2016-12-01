@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#coding=utf-8
+
 import logging
 import re
 from .pdfdevice import PDFTextDevice
@@ -20,8 +22,8 @@ from .utils import apply_matrix_pt
 from .utils import mult_matrix
 from .utils import enc
 from .utils import bbox2str
-
-
+from operator import itemgetter,attrgetter
+from itertools import groupby
 ##  PDFLayoutAnalyzer
 ##
 class PDFLayoutAnalyzer(PDFTextDevice):
@@ -151,6 +153,10 @@ class PDFConverter(PDFLayoutAnalyzer):
         return
 
 
+
+
+
+
 ##  TextConverter
 ##
 class TextConverter(PDFConverter):
@@ -195,8 +201,34 @@ class TextConverter(PDFConverter):
 
     def paint_path(self, gstate, stroke, fill, evenodd, path):
         return
-
-
+## fapiao converter
+class InvConverter(TextConverter):
+    ls=[]
+    def receive_layout(self, ltpage):
+        def render(item):
+            if isinstance(item, LTContainer):
+                for child in item:
+                    render(child)
+            elif isinstance(item, LTChar):
+                c = item.get_text()
+                if c.strip():
+                    self.ls.append((item.get_text(),int(item.matrix[4]),int(item.matrix[5])))
+        render(ltpage)
+        hl=groupby(sorted(self.ls,key=itemgetter(2),reverse=True),key=itemgetter(2))
+        for i,m in hl:
+            self.write_text('---'+str(i)+'\n')
+            for j in m:
+               self.write_text(j[0])
+        vl=groupby(sorted(self.ls,key=itemgetter(1),reverse=True),key=itemgetter(1))
+        for k,l in vl:
+            ln=''
+            self.write_text('---'+str(k)+'\n')
+            for n in l:
+               self.write_text(n[0])
+               ln=ln+n[0]
+            if  str(ln.encode('utf-8','ignore')).find('密码区')!=-1:
+               print('||||||||||||||||密码区|||||||||||||||||||||')
+        return    
 ##  HTMLConverter
 ##
 class HTMLConverter(PDFConverter):
